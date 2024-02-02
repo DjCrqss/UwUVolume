@@ -18,7 +18,7 @@ namespace UwUVolume
         static bool enableLighting = false;
         static int eventTimer = 5;
         private static MMDeviceEnumerator enumer = new MMDeviceEnumerator();
-        private static MMDevice dev = enumer.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+        private static MMDeviceCollection devices = enumer.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
 
         /// <summary>
@@ -42,7 +42,11 @@ namespace UwUVolume
         }
 
         static void initAudio() {
-            dev.AudioEndpointVolume.OnVolumeNotification += volChange;
+            foreach (var dev in devices)
+            {
+                dev.AudioEndpointVolume.OnVolumeNotification += volChange;
+            }
+            
         }
 
         static void volChange(AudioVolumeNotificationData data)
