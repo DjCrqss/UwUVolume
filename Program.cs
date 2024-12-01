@@ -74,7 +74,7 @@ namespace UwUVolume
             {
                 RGBControl.SetControlDevice(i);
                 var device = RGBControl.GetDeviceInfo();
-                //Console.WriteLine($"Found device: Connected: [{device.Connected}], Model: [{device.Model}], Type: [{device.DeviceType}], Max Rows: {device.MaxRows}, Max Cols: {device.MaxColumns}, Max Keycode: {device.KeycodeLimit}");
+                //Debug.WriteLine($"Found device: Connected: [{device.Connected}], Model: [{device.Model}], Type: [{device.DeviceType}], Max Rows: {device.MaxRows}, Max Cols: {device.MaxColumns}, Max Keycode: {device.KeycodeLimit}");
                 if (device.Model.Equals("Wooting UwU RGB"))
                 {
                     enableLighting = true;
@@ -96,7 +96,7 @@ namespace UwUVolume
         static void runLighting() {
             while (enableLighting && eventTimer > 0)
             {
-
+                Debug.WriteLine("Setting RGB " + eventTimer);
                 RGBControl.SetControlDevice(UwU);
                 KeyColour[,] keys = new KeyColour[RGBControl.MaxRGBRows, RGBControl.MaxRGBCols];
                 float scaledValue = lastKnownVol * lightProgress.Length;
