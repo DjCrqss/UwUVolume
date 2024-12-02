@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using System.Threading;
 using NAudio;
 using NAudio.CoreAudioApi;
@@ -16,7 +17,8 @@ namespace UwUVolume
         static byte UwU = 255;
         static RGBDeviceInfo uwuDeviceInfo = new RGBDeviceInfo();
         static bool enableLighting = false;
-        static int eventTimer = 5;
+        static bool volumeRunning = false;
+        static int eventTimer = 10;
         private static MMDeviceEnumerator enumer = new MMDeviceEnumerator();
         private static MMDeviceCollection devices = enumer.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
 
@@ -31,7 +33,9 @@ namespace UwUVolume
 
             initLighting();
             initAudio();
-            
+            ThreadPool.QueueUserWorkItem(o => initVisualiser());
+            //initVisualiser();
+
 
             // start application in the tray
             Application.EnableVisualStyles();
@@ -54,10 +58,10 @@ namespace UwUVolume
             lastKnownVol = data.MasterVolume;
             if (eventTimer > 0)
             {
-                eventTimer = 8;
+                eventTimer = 50;
             }
             else {
-                eventTimer = 8;
+                eventTimer = 50;
                 ThreadPool.QueueUserWorkItem(o => runLighting());
 
             }
@@ -96,6 +100,7 @@ namespace UwUVolume
         static void runLighting() {
             while (enableLighting && eventTimer > 0)
             {
+                volumeRunning = true;
                 Debug.WriteLine("Setting RGB " + eventTimer);
                 RGBControl.SetControlDevice(UwU);
                 KeyColour[,] keys = new KeyColour[RGBControl.MaxRGBRows, RGBControl.MaxRGBCols];
@@ -117,13 +122,73 @@ namespace UwUVolume
                 RGBControl.UpdateKeyboard();
 
                 eventTimer--;
-              
-                Thread.Sleep(225);
+                Thread.Sleep(20);
             }
             RGBControl.ResetRGB();
+            volumeRunning = false;
         }
 
+        static void initVisualiser() {
+            Debug.WriteLine("Setting vis ");
+            var enumerator = new MMDeviceEnumerator();
+            var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
 
+            RGBControl.SetControlDevice(UwU);
+            KeyColour[,] visKeys = new KeyColour[RGBControl.MaxRGBRows, RGBControl.MaxRGBCols];
+            int middleStart = (lightProgress.Length / 2) - 1; // Index 3
+            int middleEnd = lightProgress.Length / 2;        // Index 4
+
+            while (enableLighting)
+            {
+                if (!volumeRunning)
+                {
+                    var volume = device.AudioMeterInformation.MasterPeakValue;
+                    float scaledValue = volume * (lightProgress.Length -1);
+                    int scale = Math.Min((int)scaledValue, lightProgress.Length/2);
+                    byte roundedFraction = 0;
+                    if (scale > 1)
+                    {
+                        roundedFraction = Convert.ToByte((scaledValue - scale) * 255);
+                    }
+                    byte rbfractionalbyte = (byte)(roundedFraction * 0.2);
+
+                    // Middle bounds
+                    int lowerBound = middleStart - scale + 1;
+                    int upperBound = middleEnd + scale - 1;
+                    //Debug.WriteLine($"Fractional values: {roundedFraction} and {rbfractionalbyte} for {lowerBound}, {upperBound}. Scale = {scaledValue}");
+
+                    for (int i = 0; i < lightProgress.Length; i++)
+                    {
+                        if (i >= lowerBound && i <= upperBound)
+                        {
+                            visKeys[lightProgress[i].y, lightProgress[i].x] = new KeyColour(51, 255, 152); // Turn on
+                        }
+                        else
+                        {
+                            visKeys[lightProgress[i].y, lightProgress[i].x] = new KeyColour(0, 0, 0); // Turn off
+                        }
+
+                        // support for fractional values
+                        if (roundedFraction > 0) {
+                            
+                            visKeys[lightProgress[lowerBound].y, lightProgress[lowerBound].x] = new KeyColour(rbfractionalbyte, roundedFraction, rbfractionalbyte);
+                            visKeys[lightProgress[upperBound].y, lightProgress[upperBound].x] = new KeyColour(rbfractionalbyte, roundedFraction, rbfractionalbyte);
+                        }
+                    }
+
+
+                    RGBControl.SetFull(visKeys);
+                    RGBControl.UpdateKeyboard();
+                    Thread.Sleep(20);
+
+                    //var sb = new StringBuilder();
+                    //sb.Append('-', scale);
+                    //sb.Append(' ', 79 - scale);
+                    //Debug.WriteLine(sb.ToString());
+                }
+            }
+
+        }
         /// <summary>
         /// Class <c>WootTrayApp</c> is the main tray application
         /// </summary>
